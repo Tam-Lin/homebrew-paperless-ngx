@@ -6,7 +6,7 @@ class PaperlessNgx < Formula
   url "https://github.com/paperless-ngx/paperless-ngx/archive/refs/tags/v2.16.1.tar.gz"
   sha256 "551149e803961f44da1c447a257f419bc5e95de6f1563e4ddf9e5696a97d5dc9"
   license "GPL-3.0-or-later"
-  revision 1
+  revision 2
 
   bottle do
     root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
@@ -46,6 +46,7 @@ class PaperlessNgx < Formula
   depends_on "poppler"
   depends_on "python@3.13"
   depends_on "qpdf"
+  depends_on "s6"
   depends_on "scipy"
   depends_on "six"
   depends_on "tesseract-lang"
@@ -669,6 +670,10 @@ class PaperlessNgx < Formula
 
     # build backend
     venv = virtualenv_install_with_resources without: ["httpx-oauth", "zxing-cpp"]
+    python_executable = venv.root/"bin/python"
+    manage_py_script = venv.site_packages/"manage.py"
+    celery_executable = venv.root/"bin/celery"
+    granian_executable = venv.root/"bin/granian"
     # https://github.com/frankie567/hatch-regex-commit/issues/4
     resource("httpx-oauth").stage do
       inreplace "pyproject.toml",
@@ -683,19 +688,18 @@ class PaperlessNgx < Formula
 
     # download NLTK data
     %w[snowball_data stopwords punkt_tab].each do |nltk_data|
-      system libexec/"bin/python",
+      system python_executable,
          "-W", "ignore::RuntimeWarning",
          "-m", "nltk.downloader",
          "-d", var/"paperless-ngx/nltk_data",
          nltk_data
     end
 
-    static_dir = var/"paperless-ngx/static"
-    python = venv.root/"bin/python"
+    static_dir = libexec/"static"
     chdir "src" do
       with_env(PAPERLESS_STATICDIR: static_dir) do
-        system python, "manage.py", "collectstatic", "--clear", "--no-input"
-        system python, "manage.py", "compilemessages"
+        system python_executable, "manage.py", "collectstatic", "--clear", "--no-input"
+        system python_executable, "manage.py", "compilemessages"
       end
     end
 
@@ -730,25 +734,122 @@ class PaperlessNgx < Formula
     SH
     (etc/"paperless-ngx").install "paperless.conf"
 
-    # launcher
-    (buildpath/"paperless-ngx").write <<~SH
-      #!/usr/bin/env sh
-      export PAPERLESS_CONFIGURATION_PATH="#{etc}/paperless-ngx/paperless.conf"
-      # source the config file to set options for granian, e.g. `GRANIAN_PORT`
+    s6_services_dir = libexec/"s6_services"
+    s6_services_dir.mkpath
+
+    # paperless-webserver service
+    webserver_dir = s6_services_dir/"paperless-webserver"
+    webserver_dir.mkpath
+    (webserver_dir/"type").write "longrun"
+    (webserver_dir/"up").write "" # Empty file
+    (webserver_dir/"run").write <<~EOS
+      #!/bin/sh
       set -a
-      source "${PAPERLESS_CONFIGURATION_PATH}"
+      . "#{etc}/paperless-ngx/paperless.conf"
       set +a
-      "#{python}" "#{venv.site_packages}/manage.py" migrate
-      exec "#{libexec}/bin/granian" --interface asginl --ws "paperless.asgi:application"
-    SH
-    bin.install "paperless-ngx"
-    (bin/"paperless-ngx").chmod 0755
+      export PAPERLESS_CONFIGURATION_PATH="#{etc}/paperless-ngx/paperless.conf"
+      exec "#{granian_executable}" \\
+        --interface asgi \\
+        --host "${PAPERLESS_INTERFACE:-127.0.0.1}" \\
+        --port "${PAPERLESS_PORT:-8000}" \\
+        --workers "${PAPERLESS_WEBSERVER_WORKERS:-2}" \\
+        --ws \\
+        --loop uvloop \\
+        "paperless.asgi:application"
+    EOS
+    (webserver_dir/"run").chmod 0755
+    webserver_deps_dir = webserver_dir/"dependencies.d"
+    webserver_deps_dir.mkpath
+    (webserver_deps_dir/"init-migrations").write ""
+    (webserver_deps_dir/"paperless-worker").write ""
+    (webserver_deps_dir/"paperless-scheduler").write ""
+    (webserver_deps_dir/"paperless-consumer").write ""
+
+    # paperless-consumer service
+    consumer_dir = s6_services_dir/"paperless-consumer"
+    consumer_dir.mkpath
+    (consumer_dir/"type").write "longrun"
+    (consumer_dir/"up").write ""
+    (consumer_dir/"run").write <<~EOS
+      #!/bin/sh
+      set -a
+      . "#{etc}/paperless-ngx/paperless.conf"
+      set +a
+      export PAPERLESS_CONFIGURATION_PATH="#{etc}/paperless-ngx/paperless.conf"
+
+      exec "#{python_executable}" "#{manage_py_script}" document_consumer
+    EOS
+    (consumer_dir/"run").chmod 0755
+    consumer_deps_dir = consumer_dir/"dependencies.d"
+    consumer_deps_dir.mkpath
+    (consumer_deps_dir/"init-migrations").write ""
+
+    # paperless-worker service
+    worker_dir = s6_services_dir/"paperless-worker"
+    worker_dir.mkpath
+    (worker_dir/"type").write "longrun"
+    (worker_dir/"up").write ""
+    (worker_dir/"run").write <<~EOS
+      #!/bin/sh
+      set -a
+      . "#{etc}/paperless-ngx/paperless.conf"
+      set +a
+      export PAPERLESS_CONFIGURATION_PATH="#{etc}/paperless-ngx/paperless.conf"
+      export TMPDIR="#{var}/paperless-ngx/tmp"
+
+      exec "#{celery_executable}" \\
+        --app paperless \\
+        worker \\
+        --loglevel INFO \\
+        --without-mingle \\
+        --without-gossip
+    EOS
+    (worker_dir/"run").chmod 0755
+    worker_deps_dir = worker_dir/"dependencies.d"
+    worker_deps_dir.mkpath
+    (worker_deps_dir/"init-migrations").write ""
+
+    # paperless-scheduler service
+    scheduler_dir = s6_services_dir/"paperless-scheduler"
+    scheduler_dir.mkpath
+    (scheduler_dir/"type").write "longrun"
+    (scheduler_dir/"up").write ""
+    (scheduler_dir/"run").write <<~EOS
+      #!/bin/sh
+      set -a
+      . "#{etc}/paperless-ngx/paperless.conf"
+      set +a
+      export PAPERLESS_CONFIGURATION_PATH="#{etc}/paperless-ngx/paperless.conf"
+      exec "#{celery_executable}" \\
+        --app paperless \\
+        beat \\
+        --loglevel INFO
+    EOS
+    (scheduler_dir/"run").chmod 0755
+    scheduler_deps_dir = scheduler_dir/"dependencies.d"
+    scheduler_deps_dir.mkpath
+    (scheduler_deps_dir/"init-migrations").write ""
+
+    # init-migrations service (one-shot)
+    migrations_dir = s6_services_dir/"init-migrations"
+    migrations_dir.mkpath
+    (migrations_dir/"type").write "oneshot"
+    (migrations_dir/"up").write "" # Empty file
+    (migrations_dir/"run").write <<~EOS
+      #!/bin/sh
+      echo "Running Paperless-ngx database migrations..."
+      set -a
+      . "#{etc}/paperless-ngx/paperless.conf"
+      set +a
+      exec "#{python_executable}" "#{manage_py_script}" migrate --no-input --skip-checks
+    EOS
+    (migrations_dir/"run").chmod 0755
 
     # manage.py wrapper
     (buildpath/"paperless-manage").write <<~SH
       #!/usr/bin/env sh
       export PAPERLESS_CONFIGURATION_PATH="#{etc}/paperless-ngx/paperless.conf"
-      exec "#{python}" "#{venv.site_packages}/manage.py" "$@"
+      exec "#{python_executable}" "#{manage_py_script}" "$@"
     SH
     bin.install "paperless-manage"
     (bin/"paperless-manage").chmod 0755
@@ -762,10 +863,12 @@ class PaperlessNgx < Formula
     mkdir_p (var/"paperless-ngx/media")
     mkdir_p (var/"paperless-ngx/nltk_data")
     mkdir_p (var/"paperless-ngx/tmp")
+
+    ln_sf opt_libexec/"static", var/"paperless-ngx/static"
   end
 
   service do
-    run [opt_bin/"paperless-ngx"]
+    run [Formula["s6"].opt_bin/"s6-svscan", opt_libexec/"s6_services"]
     # The service requires:
     # - PATH with runtime binaries
     # - HOME directory for gnupg
@@ -784,11 +887,6 @@ class PaperlessNgx < Formula
     <<~EOS
       Configuration:
         #{etc}/paperless-ngx/paperless.conf
-
-      paperless-ngx requires a number of additional services to be installed:
-        paperless-ngx-consumer
-        paperless-ngx-scheduler
-        paperless-ngx-task-queue
     EOS
   end
 
