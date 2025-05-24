@@ -7,6 +7,12 @@ class PaperlessNgx < Formula
   sha256 "551149e803961f44da1c447a257f419bc5e95de6f1563e4ddf9e5696a97d5dc9"
   license "GPL-3.0-or-later"
 
+  bottle do
+    root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
+    sha256 arm64_sequoia: "661903aa16a2065cd01b5b786ece5e9e983b0978ae2274f22397f850ccadbde8"
+    sha256 ventura:       "512e8c39e8b0cacf2881f481b88820bba4cf9ade74778857481b61d89ff99392"
+  end
+
   depends_on "angular-cli" => :build
   depends_on "autoconf" => :build
   depends_on "cmake" => :build
