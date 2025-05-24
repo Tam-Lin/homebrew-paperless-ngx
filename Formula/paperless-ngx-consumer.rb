@@ -7,6 +7,12 @@ class PaperlessNgxConsumer < Formula
   sha256 "551149e803961f44da1c447a257f419bc5e95de6f1563e4ddf9e5696a97d5dc9"
   license "GPL-3.0-or-later"
 
+  bottle do
+    root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "14d632b57bd58b099dad06feb48ec80427d2b0e72d57ec43333fbd54af2c874f"
+    sha256 cellar: :any_skip_relocation, ventura:       "3896f21793a9b623cda1c38d199601da9e45b84fd68c76dc411fb5554be72052"
+  end
+
   depends_on "paperless-ngx"
   depends_on "python@3.13"
 
