@@ -7,6 +7,12 @@ class PaperlessNgxScheduler < Formula
   sha256 "551149e803961f44da1c447a257f419bc5e95de6f1563e4ddf9e5696a97d5dc9"
   license "GPL-3.0-or-later"
 
+  bottle do
+    root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "1f369d448af570afb5b3da8b5a59f1a08b4eeb59fa20c7e61d02ef36dcb7a0e0"
+    sha256 cellar: :any_skip_relocation, ventura:       "704d260fc9fecf1d2040b10c5040c7155616dbb1876f21bd3c39f3b767ffe138"
+  end
+
   depends_on "paperless-ngx"
   depends_on "python@3.13"
 
