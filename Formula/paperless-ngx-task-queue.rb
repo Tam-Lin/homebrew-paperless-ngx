@@ -7,6 +7,12 @@ class PaperlessNgxTaskQueue < Formula
   sha256 "551149e803961f44da1c447a257f419bc5e95de6f1563e4ddf9e5696a97d5dc9"
   license "GPL-3.0-or-later"
 
+  bottle do
+    root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "4eb3f90c790956962a353f4e0c47573e64e167cc8a6c831f799086e948c27cc1"
+    sha256 cellar: :any_skip_relocation, ventura:       "b62e38f1c37dc5d9e186d8701239989da7212c4c632338d0dd249adb7883ea99"
+  end
+
   depends_on "paperless-ngx"
   depends_on "python@3.13"
 
