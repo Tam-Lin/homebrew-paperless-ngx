@@ -19,10 +19,10 @@ brew "<formula>"
 
 ## Install and run paperless-ngx
 
-Install all formulae:
+Install paperless-ngx:
 
 ```
-brew install paperless-ngx
+brew install ingmarstein/paperless-ngx/paperless-ngx
 ```
 
 Configure paperless-ngx in `$(brew --prefix)/etc/paperless-ngx/paperless.conf`
