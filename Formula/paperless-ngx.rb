@@ -9,8 +9,8 @@ class PaperlessNgx < Formula
 
   bottle do
     root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
-    sha256 arm64_sequoia: "78cfa60a0473bc35798cd406259428a8f420fb0169d4b058335cc051d51ad3d7"
-    sha256 ventura:       "fefc4b9cab1e87d192b34a9ba7d639939e26b831f0055bfd7b567df03ae549ed"
+    sha256 arm64_sequoia: "a5cbcd94f90822fa43342f10852661f97048e2c69434e846c6139900511ec463"
+    sha256 ventura:       "c5317ffbe71239e2c83c8da581f8efd498c79d9366abb5ab326148e016b95c16"
   end
 
   depends_on "angular-cli" => :build
