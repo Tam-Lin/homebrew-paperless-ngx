@@ -53,6 +53,7 @@ class PaperlessNgx < Formula
 
   uses_from_macos "libxml2"
   uses_from_macos "libxslt"
+  uses_from_macos "zlib"
 
   resource "amqp" do
     url "https://files.pythonhosted.org/packages/79/fc/ec94a357dfc6683d8c86f8b4cfa5416a4c36b28052ec8260c77aca96a443/amqp-5.3.1.tar.gz"
@@ -830,7 +831,7 @@ class PaperlessNgx < Formula
   end
 
   service do
-    run [Formula["s6"].opt_bin/"s6-svscan", opt_libexec/"s6_services"]
+    run [HOMEBREW_PREFIX/"bin/s6-svscan", opt_libexec/"s6_services"]
     # The service requires:
     # - PATH with runtime binaries
     # - HOME directory for gnupg
@@ -883,7 +884,7 @@ class PaperlessNgx < Formula
       assert listening, "granian did not start listening within #{timeout} seconds"
     ensure
       if pid
-        Process.kill("TERM", pid)
+        Process.kill("KILL", pid)
         Process.wait(pid)
       end
     end
