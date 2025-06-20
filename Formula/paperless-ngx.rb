@@ -9,9 +9,9 @@ class PaperlessNgx < Formula
 
   bottle do
     root_url "https://ghcr.io/v2/ingmarstein/paperless-ngx"
-    sha256 arm64_sequoia: "c5ba96c6dd933d5b1bf464024864bfbd37296ec686d7539e5b652fc6aade0dc7"
-    sha256 ventura:       "8e286b8ec58a0d5d06072a188758a5bfa570b65c33dd32f4048584d1a13ad325"
-    sha256 x86_64_linux:  "a064d8d18cf3559bf15999572542318a92964a8e1b4958c3a5bcd206c5fc40be"
+    sha256 arm64_sequoia: "8016f9bb8b73dd7ffe88f828f388e4e216adbd2a6a9c5ecd40bb80e55eb55f5c"
+    sha256 ventura:       "b898cd30718390fb5788fc46309cb192da8095128b79b16998ea43c69bf74077"
+    sha256 x86_64_linux:  "df0fcedfa26f94045ed7870754b938d57ffb9ddd9cbcbf2164e8108c1230e5b6"
   end
 
   depends_on "angular-cli" => :build
@@ -427,8 +427,10 @@ class PaperlessNgx < Formula
   end
 
   resource "pi-heif" do
-    url "https://files.pythonhosted.org/packages/4f/90/ff6dcd9aa3b725f7eba9d70e1a12003effe45aa5bd438e3a20d14818f846/pi_heif-0.22.0.tar.gz"
-    sha256 "489ddda3c9fed948715a9c8642c6ee24c3b438a7fbf85b3a8f097d632d7082a8"
+    url "https://files.pythonhosted.org/packages/7a/5c/12198f6c7d40eb62dd9196635bba12c5d46f910dba650bd761acbaf73b64/pi_heif-1.0.0.tar.gz"
+    sha256 "beb5233436245a2a129515ee0fecdab022812673d372a7511137aa4fbabb069d"
+
+    patch :DATA
   end
 
   resource "pikepdf" do
@@ -896,3 +898,14 @@ class PaperlessNgx < Formula
     end
   end
 end
+
+__END__
+--- a/pi_heif/_pi_heif.c
++++ b/pi_heif/_pi_heif.c
+@@ -1,6 +1,7 @@
+ #define PY_SSIZE_T_CLEAN
+ 
+ #include "Python.h"
+ #include "libheif/heif.h"
++#include "libheif/heif_properties.h"
+ #include "_ph_postprocess.h"
